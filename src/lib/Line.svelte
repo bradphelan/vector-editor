@@ -16,10 +16,13 @@
   });
 
   function draw(ctx: CanvasRenderingContext2D) {
-    ctx.beginPath();
-    ctx.moveTo(...start);
-    ctx.lineTo(...end);
-    ctx.stroke();
+    if(end!=null&&end!=undefined&&start!=null&&start!=undefined)
+    {
+        ctx.beginPath();
+        ctx.moveTo(...start);
+        ctx.lineTo(...end);
+        ctx.stroke();
+    }
   }
 
 
