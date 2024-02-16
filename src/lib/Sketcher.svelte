@@ -275,6 +275,16 @@
       }
     });
   }
+
+
+  function undo(arg0: number, state: State): State {
+    state = stopDrawing(state);
+    return produce(state, (draft) => {
+      if (draft.curves.length > 0) {
+        draft.curves.pop();
+      }
+    });
+  }
 </script>
 
 <Canvas
@@ -309,6 +319,7 @@
   >
   <button on:click={() => (state = clear(state))}>Reset</button>
   <button on:click={() => (state = smoothCurves(5, state))}>Smooth</button>
+  <button on:click={() => (state = undo(5, state))}>Undo</button>
   <label>
     Close curves
     <input type="checkbox" bind:checked={closeCurves} />
