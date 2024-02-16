@@ -5,7 +5,11 @@
 
   let curves: Point[][] = [];
 
-  function joinByDelimeter(arr: any[], mapFn: (x: any) => string, delimeter: string) {
+  function joinByDelimeter(
+    arr: any[],
+    mapFn: (x: any) => string,
+    delimeter: string
+  ) {
     let s = "";
     for (let i = 0; i < arr.length; i++) {
       s += mapFn(arr[i]);
@@ -17,49 +21,53 @@
   }
 
   function pointToString(point: Point) {
-    if(point==undefined)
-    {
+    if (point == undefined) {
       return `{}`;
     }
     return `{${point[0]}, ${point[1]}}`;
   }
 
-  function curveToString(curve: Curve){
+  function curveToString(curve: Curve) {
     return `{${joinByDelimeter(curve, pointToString, ", ")}}`;
   }
 
-  function curvesToString(curves: Curves){
+  function curvesToString(curves: Curves) {
     return `{${joinByDelimeter(curves, curveToString, ", ")}}`;
   }
 
-
-  function updateCppInitializerList(curves: Point[][] ) {
-    return `std::vector<std::vector<cv::Point>> curves = ${curvesToString(curves)};`;
+  function updateCppInitializerList(curves: Point[][]) {
+    return `std::vector<std::vector<Point2D>> curves = ${curvesToString(
+      curves
+    )};`;
   }
 
-  $: cppInitializerList =  updateCppInitializerList(curves);
+  $: cppInitializerList = updateCppInitializerList(curves);
 
-  async function setClipboard(text:string) {
+  async function setClipboard(text: string) {
     const type = "text/plain";
     const blob = new Blob([text], { type });
     const data = [new ClipboardItem({ [type]: blob })];
     await navigator.clipboard.write(data);
   }
 
-
   function copy() {
     setClipboard(cppInitializerList);
   }
 
-
   onMount(() => {});
-
 </script>
 
 <main>
+  <div class="explanation">
+    <h1>Sketcher</h1>
+    <p>
+      Sketcher is a tool to help you create a list of points to be used in c++
+      unit tests. Draw your curves and copy the C++ code to use in your project.
+    </p>
+  </div>
   <div class="container">
     <div class="canvas-area">
-      <Sketcher bind:curves={curves}/>
+      <Sketcher bind:curves />
     </div>
     <div class="textarea-area">
       <textarea readonly value={cppInitializerList} rows="10" cols="50"
@@ -67,10 +75,13 @@
       <button on:click={() => copy()}>Copy</button>
     </div>
   </div>
-
 </main>
 
 <style>
+.explanation {
+    margin: 10px;
+    text-align: left;
+}
   .container {
     display: flex;
     justify-content: align-self;
