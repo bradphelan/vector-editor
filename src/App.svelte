@@ -11,6 +11,10 @@
   let cppInitializerList = ""; // This will hold the C++ initializer list
   let closeCurves = true;
 
+  let editedCurve = 0;
+  let editedPoint = 0;
+  let editing = false;
+
   function handleMouseDown(event) {
     isDrawing = true;
     const newPoint = [event.offsetX, event.offsetY];
@@ -29,7 +33,24 @@
         currentCurve.push(newPoint);
       }
       tempLineStart = newPoint; // Start the temporary line
-    }
+    } else if (mode === "edit") {
+      // Find the closest point to the mouse and drag it
+        let minDistance = Infinity;
+        for (let i = 0; i < curves.length; i++) {
+          for (let j = 0; j < curves[i].length; j++) {
+            const distance = Math.sqrt(
+              (curves[i][j][0] - event.offsetX) ** 2 +
+                (curves[i][j][1] - event.offsetY) ** 2
+            );
+            if (distance < minDistance) {
+              minDistance = distance;
+              editedCurve = i;
+              editedPoint = j;
+            }
+          }
+        }
+        editing = true;
+    }   
     redraw();
   }
 
@@ -49,6 +70,13 @@
         context.lineTo(event.offsetX, event.offsetY);
         context.stroke();
         context.strokeStyle = "#000000"; // Reset color to black
+      } else if (mode === "edit") {
+        // Drag the closest point to the mouse with the mouse
+        if (editing) {
+          curves[editedCurve][editedPoint] = [event.offsetX, event.offsetY];
+          redraw();
+        }
+
       }
     }
   }
@@ -64,6 +92,8 @@
     } else if (mode === "lines") {
       // Clear the temporary line
       //tempLineStart = null;
+    } else if (mode === "edit") {
+      editing = false;
     }
     redraw();
   }
@@ -76,6 +106,8 @@
     } else if (mode === "lines") {
       // Clear the temporary line
       tempLineStart = null;
+    } else if (mode === "edit") {
+      editing = false;
     }
     redraw();
   }
@@ -275,6 +307,10 @@
   <button
     on:click={() => changeMode("lines")}
     class={mode === "lines" ? "active" : ""}>Lines</button
+  >
+  <button
+    on:click={() => changeMode("edit")}
+    class={mode === "edit" ? "active" : ""}>Edit</button
   >
   <button on:click={() => clear()}>Reset</button>
   <button on:click={() => smoothCurves(5)}>Smooth</button>
