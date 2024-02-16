@@ -1,13 +1,17 @@
-<script>
+<script lang="ts">
   import { onMount } from "svelte";
+  import Canvas from "./lib/Canvas.svelte";
+  import Line from "./lib/Line.svelte";
+  import Polyline from "./lib/Polyline.svelte";
+  import type { Point } from "../types";
 
   let canvas;
   let context;
   let isDrawing = false;
   let mode = "freehand"; // Default mode
-  let currentCurve = [];
-  let curves = [];
-  let tempLineStart = null;
+  let currentCurve: Point[] = [];
+  let curves: Point[][] = [];
+  let tempLineStart: Point = null;
   let cppInitializerList = ""; // This will hold the C++ initializer list
   let closeCurves = true;
 
@@ -16,42 +20,46 @@
   let editing = false;
 
   function handleMouseDown(event) {
+    console.log("handleMouseDown");
     isDrawing = true;
     const newPoint = [event.offsetX, event.offsetY];
     if (mode === "freehand") {
       // Start a new curve in freehand mode
       currentCurve = [newPoint];
       curves.push(currentCurve);
+      curves = curves;
     } else if (mode === "lines") {
       // Add a point to the current curve or start a new one
       if (currentCurve.length === 0) {
         // Start a new curve
         currentCurve.push(newPoint);
+        currentCurve = currentCurve;
         curves.push(currentCurve);
+        curves = curves;
       } else {
         // Add a point to the current curve
         currentCurve.push(newPoint);
+        currentCurve = currentCurve;
       }
       tempLineStart = newPoint; // Start the temporary line
     } else if (mode === "edit") {
       // Find the closest point to the mouse and drag it
-        let minDistance = Infinity;
-        for (let i = 0; i < curves.length; i++) {
-          for (let j = 0; j < curves[i].length; j++) {
-            const distance = Math.sqrt(
-              (curves[i][j][0] - event.offsetX) ** 2 +
-                (curves[i][j][1] - event.offsetY) ** 2
-            );
-            if (distance < minDistance) {
-              minDistance = distance;
-              editedCurve = i;
-              editedPoint = j;
-            }
+      let minDistance = Infinity;
+      for (let i = 0; i < curves.length; i++) {
+        for (let j = 0; j < curves[i].length; j++) {
+          const distance = Math.sqrt(
+            (curves[i][j][0] - event.offsetX) ** 2 +
+              (curves[i][j][1] - event.offsetY) ** 2
+          );
+          if (distance < minDistance) {
+            minDistance = distance;
+            editedCurve = i;
+            editedPoint = j;
           }
         }
-        editing = true;
-    }   
-    redraw();
+      }
+      editing = true;
+    }
   }
 
   function handleMouseMove(event) {
@@ -59,24 +67,15 @@
       if (mode === "freehand") {
         const newPoint = [event.offsetX, event.offsetY];
         currentCurve.push(newPoint);
-        redraw();
-      } else if (mode === "lines" && tempLineStart) {
-        // Draw a temporary line
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        redraw();
-        context.strokeStyle = "#999"; // Grey color for the temporary line
-        context.beginPath();
-        context.moveTo(tempLineStart[0], tempLineStart[1]);
-        context.lineTo(event.offsetX, event.offsetY);
-        context.stroke();
-        context.strokeStyle = "#000000"; // Reset color to black
+        currentCurve = currentCurve;
       } else if (mode === "edit") {
         // Drag the closest point to the mouse with the mouse
         if (editing) {
           curves[editedCurve][editedPoint] = [event.offsetX, event.offsetY];
-          redraw();
         }
-
+      } else if (mode === "lines") {
+        // Update the temporary line
+        tempLineStart = [event.offsetX, event.offsetY];
       }
     }
   }
@@ -87,15 +86,13 @@
       isDrawing = false;
       if (closeCurves && currentCurve.length > 1) {
         currentCurve.push(currentCurve[0]);
+        currentCurve = currentCurve;
       }
       currentCurve = [];
     } else if (mode === "lines") {
-      // Clear the temporary line
-      //tempLineStart = null;
     } else if (mode === "edit") {
       editing = false;
     }
-    redraw();
   }
 
   function handleMouseOut() {
@@ -109,7 +106,6 @@
     } else if (mode === "edit") {
       editing = false;
     }
-    redraw();
   }
 
   function handleDoubleClick() {
@@ -118,34 +114,11 @@
       isDrawing = false;
       if (closeCurves && currentCurve.length > 1) {
         currentCurve.push(currentCurve[0]);
+        currentCurve = currentCurve;
       }
       currentCurve = [];
-      redraw();
+      tempLineStart = null;
     }
-  }
-
-  function redraw() {
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    for (let curve of curves) {
-      if (curve.length > 0) {
-        context.beginPath();
-        context.moveTo(curve[0][0], curve[0][1]);
-        for (let i = 1; i < curve.length; i++) {
-          context.lineTo(curve[i][0], curve[i][1]);
-        }
-        context.stroke();
-      }
-    }
-    // Draw the current curve
-    if (currentCurve.length > 1) {
-      context.beginPath();
-      context.moveTo(currentCurve[0][0], currentCurve[0][1]);
-      for (let i = 1; i < currentCurve.length; i++) {
-        context.lineTo(currentCurve[i][0], currentCurve[i][1]);
-      }
-      context.stroke();
-    }
-    updateCppInitializerList(); // Update the C++ initializer list
   }
 
   function updateCppInitializerList() {
@@ -174,14 +147,12 @@
       // Clear the current curve and start a new one
       currentCurve = [];
     }
-    redraw();
   }
 
   function clear() {
     curves = [];
     currentCurve = [];
     updateCppInitializerList();
-    redraw();
   }
   async function setClipboard(text) {
     const type = "text/plain";
@@ -254,71 +225,67 @@
 
   function smoothCurves(tolerance) {
     curves = curves.map((curve) => douglasPeucker(curve, tolerance));
-    redraw();
   }
 
   function copy() {
     setClipboard(cppInitializerList);
   }
+  $: updateCppInitializerList();
 
-  onMount(() => {
-    canvas = document.getElementById("canvas");
-    context = canvas.getContext("2d");
-
-    // Set the display size (scaled for device's pixel ratio)
-    const scale = window.devicePixelRatio;
-    canvas.width = Math.floor(800 * scale); // Set the width to 300px scaled
-    canvas.height = Math.floor(600 * scale); // Set the height to 300px scaled
-    canvas.style.width = "800px"; // Set the CSS width to 300px
-    canvas.style.height = "600px"; // Set the CSS height to 300px
-
-    // Scale the drawing context
-    context.scale(scale, scale);
-
-    context.strokeStyle = "#000000";
-    context.lineWidth = 2;
-    redraw();
-  });
+  onMount(() => {});
 </script>
 
-<div class="container">
-  <div class="canvas-area">
-    <canvas
-      id="canvas"
-      on:mousedown={handleMouseDown}
-      on:mousemove={handleMouseMove}
-      on:mouseup={handleMouseUp}
-      on:mouseout={handleMouseOut}
-      on:dblclick={handleDoubleClick}
-    ></canvas>
+<main>
+  <div class="container">
+    <div class="canvas-area">
+      <Canvas
+        on:mousedown={handleMouseDown}
+        on:mousemove={handleMouseMove}
+        on:mouseup={handleMouseUp}
+        on:mouseout={handleMouseOut}
+        on:dblclick={handleDoubleClick}
+      >
+        <!-- If tempLineStart exists then draw a line from the end of the current curve -->
+        {#if tempLineStart  }
+          <Line
+            start={tempLineStart}
+            end={currentCurve[currentCurve.length - 1]}
+          />
+        {/if}
+        <!-- Draw all polylines in curves -->
+        {#each curves as curve}
+          <Polyline points={curve} />
+        {/each}
+      </Canvas>
+    </div>
+    <div class="textarea-area">
+      <textarea readonly value={cppInitializerList} rows="10" cols="50"
+      ></textarea>
+      <button on:click={() => copy()}>Copy</button>
+    </div>
   </div>
-  <div class="textarea-area">
-    <textarea readonly value={cppInitializerList} rows="10" cols="50"
-    ></textarea>
-    <button on:click={() => copy()}>Copy</button>
-  </div>
-</div>
 
-<div class="button-area">
-  <button
-    on:click={() => changeMode("freehand")}
-    class={mode === "freehand" ? "active" : ""}>Freehand</button
-  >
-  <button
-    on:click={() => changeMode("lines")}
-    class={mode === "lines" ? "active" : ""}>Lines</button
-  >
-  <button
-    on:click={() => changeMode("edit")}
-    class={mode === "edit" ? "active" : ""}>Edit</button
-  >
-  <button on:click={() => clear()}>Reset</button>
-  <button on:click={() => smoothCurves(5)}>Smooth</button>
-  <label>
-    Close curves
-    <input type="checkbox" bind:checked={closeCurves} />
-  </label>
-</div>
+  <div class="button-area">
+    <button
+      on:click={() => changeMode("freehand")}
+      class={mode === "freehand" ? "active" : ""}>Freehand</button
+    >
+    <button
+      on:click={() => changeMode("lines")}
+      class={mode === "lines" ? "active" : ""}>Lines</button
+    >
+    <button
+      on:click={() => changeMode("edit")}
+      class={mode === "edit" ? "active" : ""}>Edit</button
+    >
+    <button on:click={() => clear()}>Reset</button>
+    <button on:click={() => smoothCurves(5)}>Smooth</button>
+    <label>
+      Close curves
+      <input type="checkbox" bind:checked={closeCurves} />
+    </label>
+  </div>
+</main>
 
 <style>
   .container {
