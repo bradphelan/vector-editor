@@ -1,31 +1,36 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import type { Point } from "./types";
+  import type { Point, Curve, Curves } from "./types";
   import Sketcher from "./lib/Sketcher.svelte";
-
-
 
   let curves: Point[][] = [];
 
-  function updateCppInitializerList(curves: Point[][] ) {
-    let cppInitializerList =
-      "std::vector<std::vector<cadcam::Point2D>> curves = {\n";
-    for (let curve of curves) {
-      cppInitializerList += "  {";
-      for (let point of curve) {
-        cppInitializerList += `{${point[0]}, ${point[1]}}`;
-        if (point !== curve[curve.length - 1]) {
-          cppInitializerList += ", ";
-        }
+  function joinByDelimeter(arr: any[], mapFn: (x: any) => string, delimeter: string) {
+    let s = "";
+    for (let i = 0; i < arr.length; i++) {
+      s += mapFn(arr[i]);
+      if (i != arr.length - 1) {
+        s += delimeter;
       }
-      cppInitializerList += "}";
-      if (curve !== curves[curves.length - 1]) {
-        cppInitializerList += ",";
-      }
-      cppInitializerList += "\n";
     }
-    cppInitializerList += "};";
-    return cppInitializerList;
+    return s;
+  }
+
+  function pointToString(point: Point) {
+    return `{${point[0]}, ${point[1]}}`;
+  }
+
+  function curveToString(curve: Curve){
+    return `{${joinByDelimeter(curve, pointToString, ", ")}}`;
+  }
+
+  function curvesToString(curves: Curves){
+    return `{${joinByDelimeter(curves, curveToString, ", ")}}`;
+  }
+
+
+  function updateCppInitializerList(curves: Point[][] ) {
+    return `std::vector<std::vector<cv::Point>> curves = ${curvesToString(curves)};`;
   }
 
   $: cppInitializerList =  updateCppInitializerList(curves);

@@ -37,12 +37,51 @@
     tempLineStart: null as Point | null,
   };
 
-  export let curves = state.curves;
+  export let curves: Curves;
+
+  $: curves = state.curves;
+
+
+  function last_curve(state: State) {
+    let l0 = state.curves.length;
+    if(l0==0)
+    {
+      return undefined;
+    }
+    return state.curves[l0 - 1];
+  }
+
+  function last_point(state: State) {
+    let lc = last_curve(state);
+    let l = lc?.length ?? 0;
+    if(!lc || l==0)
+    {
+      return undefined;
+    }
+    return lc[l - 1];
+  }
+
+  function areDeeplyEqual(obj1, obj2) {
+  if (obj1 === obj2) return true;
+
+  if (Array.isArray(obj1) && Array.isArray(obj2)) {
+  
+      if(obj1.length !== obj2.length) return false;
+      
+      return obj1.every((elem, index) => {
+        return areDeeplyEqual(elem, obj2[index]);
+      })
+  
+  }
+  
+  return false; 
+}
 
   function push_point(point: Point, state: State): State {
     return produce(state, (draft) => {
       if (draft.curves.length == 0) draft.curves.push([]);
-      draft.curves[draft.curves.length - 1].push(point);
+     // if (!areDeeplyEqual(point,last_point(state)))
+        draft.curves[draft.curves.length - 1].push(point);
     });
   }
 
@@ -54,7 +93,7 @@
 
   function new_curve(state: State) {
     return produce(state, (draft) => {
-      draft.curves.push([]);
+      if ((last_curve(draft)?.length ?? 0) > 0) draft.curves.push([]);
     });
   }
 
@@ -95,6 +134,7 @@
     return produce(state, (draft) => {
       draft.curves = [];
       draft.tempLineStart = null;
+      draft.drawing = false;
     });
   }
 
@@ -134,7 +174,6 @@
     state: State,
     event: MouseEvent
   ) => {
-
     if (action === "mouseout") {
       state = stopDrawing(finish_curve(state));
       return state;
@@ -145,19 +184,16 @@
       if (action === "mousedown") {
         state = startDrawing(push_point(newPoint, new_curve(state)));
       } else if (action === "mouseup") {
-        if(state.drawing){
-            state = stopDrawing(finish_curve(state));
+        if (state.drawing) {
+          state = stopDrawing(finish_curve(state));
         }
       } else if (action === "mousemove") {
-        if(state.drawing)
-            state = push_point(newPoint, state);
+        if (state.drawing) state = push_point(newPoint, state);
       }
     } else if (mode === "lines") {
-      if ( action === "mousedown" && !state.drawing)
-      {
+      if (action === "mousedown" && !state.drawing) {
         state = startDrawing(push_point(newPoint, new_curve(state)));
-      }
-      else if (action === "mouseup") {
+      } else if (action === "mouseup") {
         state = push_point(newPoint, state);
       } else if (action === "mousemove") {
         if (state.drawing) {
@@ -235,8 +271,8 @@
     on:click={() => changeMode("edit")}
     class={mode === "edit" ? "active" : ""}>Edit</button
   >
-  <button on:click={() => state = clear(state)}>Reset</button>
-  <button on:click={() => state = smoothCurves(5, state)}>Smooth</button>
+  <button on:click={() => (state = clear(state))}>Reset</button>
+  <button on:click={() => (state = smoothCurves(5, state))}>Smooth</button>
   <label>
     Close curves
     <input type="checkbox" bind:checked={closeCurves} />
