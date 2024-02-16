@@ -63,6 +63,7 @@
     <p>
       Sketcher is a tool to help you create a list of points to be used in c++
       unit tests. Draw your curves and copy the C++ code to use in your project.
+      Source code is at <a href="https://github.com/bradphelan/vector-editor">github.com/bradphelan/vector-editor</a>
     </p>
   </div>
   <div class="container">
