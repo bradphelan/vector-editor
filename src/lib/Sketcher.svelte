@@ -307,5 +307,4 @@
     Close curves
     <input type="checkbox" bind:checked={closeCurves} />
   </label>
-  <label>{mode}</label>
 </div>
