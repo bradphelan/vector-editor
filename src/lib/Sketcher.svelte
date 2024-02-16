@@ -13,6 +13,7 @@
     | "mousemove"
     | "mouseup"
     | "mouseout"
+    | "mouseclick"
     | "mousedblclick";
 
   let mode: Mode = "freehand"; // Default mode
@@ -31,10 +32,10 @@
     segment: Segment | undefined;
   };
 
-  let state : State = {
+  let state: State = {
     curves: [],
     drawing: false,
-    segment: undefined
+    segment: undefined,
   };
 
   export let curves: Curves;
@@ -58,7 +59,7 @@
     return lc[l - 1];
   }
 
-  function areDeeplyEqual(obj1:any, obj2:any):boolean {
+  function areDeeplyEqual(obj1: any, obj2: any): boolean {
     if (obj1 === obj2) return true;
 
     if (Array.isArray(obj1) && Array.isArray(obj2)) {
@@ -75,7 +76,7 @@
   function push_point(point: Point, state: State): State {
     return produce(state, (draft) => {
       if (draft.curves.length == 0) draft.curves.push([]);
-      if (!areDeeplyEqual(point,last_point(state)))
+      if (!areDeeplyEqual(point, last_point(state)))
         draft.curves[draft.curves.length - 1].push(point);
     });
   }
@@ -86,25 +87,25 @@
     });
   }
 
-  function new_curve(state: State) : State {
+  function new_curve(state: State): State {
     return produce(state, (draft) => {
       if ((last_curve(draft)?.length ?? 0) > 0) draft.curves.push([]);
     });
   }
 
-  function pop_curve(state: State) : State {
+  function pop_curve(state: State): State {
     return produce(state, (draft) => {
       draft.curves.pop();
     });
   }
 
-  function startDrawing(state: State) : State {
+  function startDrawing(state: State): State {
     return produce(state, (draft) => {
       draft.drawing = true;
     });
   }
 
-  function stopDrawing(state: State) : State {
+  function stopDrawing(state: State): State {
     return produce(state, (draft) => {
       draft.drawing = false;
       draft.segment = undefined;
@@ -191,14 +192,17 @@
 
   function reduceLines(action: string, state: State, event: MouseEvent) {
     let newPoint: Point = [event.offsetX, event.offsetY];
-    if (action === "mousedown" && !state.drawing) {
-      state = startDrawing(push_point(newPoint, new_curve(state)));
-    } else if (action === "mouseup") {
-      state = push_point(newPoint, state);
+    let timer;
+    if (action === "mouseclick") {
+      console.log("click");
+      if (!state.drawing)
+        state = startDrawing(push_point(newPoint, new_curve(state)));
+      else state = push_point(newPoint, state);
     } else if (action === "mousemove") {
-      if(state.drawing)
-        state = create_segment(state, newPoint);
+      if (state.drawing) state = create_segment(state, newPoint);
     } else if (action === "mousedblclick") {
+      clearTimeout(timer);
+      console.log("dblclick");
       state = stopDrawing(finish_curve(state));
     }
     return state;
@@ -254,11 +258,12 @@
   function handleDoubleClick(event: MouseEvent) {
     state = reduce("mousedblclick", mode, state, event);
   }
+  function handleClick(event: MouseEvent) {
+    state = reduce("mouseclick", mode, state, event);
+  }
 
-
-  $:lastPoint = last_point(state);
-  let endPoint:Point = [0,0];
-
+  $: lastPoint = last_point(state);
+  let endPoint: Point = [0, 0];
 
   function create_segment(state: State, newPoint: Point): State {
     return produce(state, (draft) => {
@@ -278,12 +283,13 @@
   on:mouseup={handleMouseUp}
   on:mouseout={handleMouseOut}
   on:dblclick={handleDoubleClick}
+  on:click={handleClick}
 >
   <!-- If tempLineStart exists then draw a line from the end of the current curve -->
   {#each state.curves as curve}
     <Polyline points={curve} />
   {/each}
-  {#if state.segment!=undefined}
+  {#if state.segment != undefined}
     <Line start={state.segment[0]} end={state.segment[1]} />
   {/if}
 </Canvas>
