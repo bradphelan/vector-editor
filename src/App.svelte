@@ -153,6 +153,7 @@
     curves = [];
     currentCurve = [];
     updateCppInitializerList();
+    tempLineStart = null;
   }
   async function setClipboard(text) {
     const type = "text/plain";
