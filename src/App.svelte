@@ -17,6 +17,10 @@
   }
 
   function pointToString(point: Point) {
+    if(point==undefined)
+    {
+      return `{}`;
+    }
     return `{${point[0]}, ${point[1]}}`;
   }
 

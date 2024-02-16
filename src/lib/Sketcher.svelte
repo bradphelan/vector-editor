@@ -2,7 +2,7 @@
   import Canvas from "./Canvas.svelte";
   import Line from "./Line.svelte";
   import Polyline from "./Polyline.svelte";
-  import type { Point, Curve, Curves } from "../types";
+  import type { Point, Curve, Curves, Segment } from "../types";
   import { douglasPeucker } from "../utils";
   import type { Action } from "svelte/action";
   import { produce } from "immer";
@@ -28,24 +28,22 @@
   type State = {
     curves: Curves;
     drawing: boolean;
-    tempLineStart: Point | null;
+    segment: Segment | undefined;
   };
 
-  let state = {
-    curves: [] as Curves,
+  let state : State = {
+    curves: [],
     drawing: false,
-    tempLineStart: null as Point | null,
+    segment: undefined
   };
 
   export let curves: Curves;
 
   $: curves = state.curves;
 
-
   function last_curve(state: State) {
     let l0 = state.curves.length;
-    if(l0==0)
-    {
+    if (l0 == 0) {
       return undefined;
     }
     return state.curves[l0 - 1];
@@ -54,33 +52,30 @@
   function last_point(state: State) {
     let lc = last_curve(state);
     let l = lc?.length ?? 0;
-    if(!lc || l==0)
-    {
+    if (!lc || l == 0) {
       return undefined;
     }
     return lc[l - 1];
   }
 
-  function areDeeplyEqual(obj1, obj2) {
-  if (obj1 === obj2) return true;
+  function areDeeplyEqual(obj1:any, obj2:any):boolean {
+    if (obj1 === obj2) return true;
 
-  if (Array.isArray(obj1) && Array.isArray(obj2)) {
-  
-      if(obj1.length !== obj2.length) return false;
-      
+    if (Array.isArray(obj1) && Array.isArray(obj2)) {
+      if (obj1.length !== obj2.length) return false;
+
       return obj1.every((elem, index) => {
         return areDeeplyEqual(elem, obj2[index]);
-      })
-  
+      });
+    }
+
+    return false;
   }
-  
-  return false; 
-}
 
   function push_point(point: Point, state: State): State {
     return produce(state, (draft) => {
       if (draft.curves.length == 0) draft.curves.push([]);
-     // if (!areDeeplyEqual(point,last_point(state)))
+      if (!areDeeplyEqual(point,last_point(state)))
         draft.curves[draft.curves.length - 1].push(point);
     });
   }
@@ -91,27 +86,28 @@
     });
   }
 
-  function new_curve(state: State) {
+  function new_curve(state: State) : State {
     return produce(state, (draft) => {
       if ((last_curve(draft)?.length ?? 0) > 0) draft.curves.push([]);
     });
   }
 
-  function pop_curve(state: State) {
+  function pop_curve(state: State) : State {
     return produce(state, (draft) => {
       draft.curves.pop();
     });
   }
 
-  function startDrawing(state: State) {
+  function startDrawing(state: State) : State {
     return produce(state, (draft) => {
       draft.drawing = true;
     });
   }
 
-  function stopDrawing(state: State) {
+  function stopDrawing(state: State) : State {
     return produce(state, (draft) => {
       draft.drawing = false;
+      draft.segment = undefined;
     });
   }
 
@@ -133,7 +129,7 @@
   function clear(state: State) {
     return produce(state, (draft) => {
       draft.curves = [];
-      draft.tempLineStart = null;
+      draft.segment = undefined;
       draft.drawing = false;
     });
   }
@@ -155,7 +151,7 @@
         }
       }
     }
-    if (editedCurve && editedPoint)
+    if (editedCurve != undefined && editedPoint != undefined)
       return { curve: editedCurve, point: editedPoint };
     return undefined;
   }
@@ -168,57 +164,72 @@
     });
   }
 
+  function reduceEdit(action: string, state: State, event: MouseEvent) {
+    if (action === "mousedown") {
+      editedPoint = GetEditedPoint(event);
+    } else if (action === "mouseup") {
+      editedPoint = undefined;
+    } else if (action === "mousemove") {
+      if (editedPoint) {
+        state = produce(state, (draft) => {
+          if (editedPoint != undefined) {
+            let curve = draft.curves[editedPoint.curve];
+            curve[editedPoint.point] = [event.offsetX, event.offsetY];
+            if (
+              editedPoint.point == 0 ||
+              editedPoint.point == curve.length - 1
+            ) {
+              let i = curve.length - editedPoint.point - 1;
+              curve[i] = [event.offsetX, event.offsetY];
+            }
+          }
+        });
+      }
+    }
+    return state;
+  }
+
+  function reduceLines(action: string, state: State, event: MouseEvent) {
+    let newPoint: Point = [event.offsetX, event.offsetY];
+    if (action === "mousedown" && !state.drawing) {
+      state = startDrawing(push_point(newPoint, new_curve(state)));
+    } else if (action === "mouseup") {
+      state = push_point(newPoint, state);
+    } else if (action === "mousemove") {
+      if(state.drawing)
+        state = create_segment(state, newPoint);
+    } else if (action === "mousedblclick") {
+      state = stopDrawing(finish_curve(state));
+    }
+    return state;
+  }
+
+  function reduceFreehand(action: string, state: State, event: MouseEvent) {
+    let newPoint: Point = [event.offsetX, event.offsetY];
+    if (action === "mousedown") {
+      state = startDrawing(push_point(newPoint, new_curve(state)));
+    } else if (action === "mouseup") {
+      if (state.drawing) {
+        state = stopDrawing(finish_curve(state));
+      }
+    } else if (action === "mousemove") {
+      if (state.drawing) state = push_point(newPoint, state);
+    }
+    return state;
+  }
+
   const reduce = (
     action: Action,
     mode: Mode,
     state: State,
     event: MouseEvent
   ) => {
-    if (action === "mouseout") {
-      state = stopDrawing(finish_curve(state));
-      return state;
-    }
-
-    let newPoint: Point = [event.offsetX, event.offsetY];
     if (mode === "freehand") {
-      if (action === "mousedown") {
-        state = startDrawing(push_point(newPoint, new_curve(state)));
-      } else if (action === "mouseup") {
-        if (state.drawing) {
-          state = stopDrawing(finish_curve(state));
-        }
-      } else if (action === "mousemove") {
-        if (state.drawing) state = push_point(newPoint, state);
-      }
+      state = reduceFreehand(action, state, event);
     } else if (mode === "lines") {
-      if (action === "mousedown" && !state.drawing) {
-        state = startDrawing(push_point(newPoint, new_curve(state)));
-      } else if (action === "mouseup") {
-        state = push_point(newPoint, state);
-      } else if (action === "mousemove") {
-        if (state.drawing) {
-          state = pop_point(state);
-          state = push_point(newPoint, state);
-        }
-      } else if (action === "mousedblclick") {
-        state = stopDrawing(finish_curve(state));
-      }
+      state = reduceLines(action, state, event);
     } else if (mode === "edit") {
-      if (action === "mousedown") {
-        editedPoint = GetEditedPoint(event);
-      } else if (action === "mouseup") {
-        editedPoint = undefined;
-      } else if (action === "mousemove") {
-        if (editedPoint) {
-          state = produce(state, (draft) => {
-            if (editedPoint != undefined)
-              draft.curves[editedPoint.curve][editedPoint.point] = [
-                event.offsetX,
-                event.offsetY,
-              ];
-          });
-        }
-      }
+      state = reduceEdit(action, state, event);
     }
 
     return state;
@@ -243,6 +254,22 @@
   function handleDoubleClick(event: MouseEvent) {
     state = reduce("mousedblclick", mode, state, event);
   }
+
+
+  $:lastPoint = last_point(state);
+  let endPoint:Point = [0,0];
+
+
+  function create_segment(state: State, newPoint: Point): State {
+    return produce(state, (draft) => {
+      if (draft.curves.length > 0) {
+        let currentCurve = draft.curves[draft.curves.length - 1];
+        if (currentCurve.length > 0) {
+          draft.segment = [currentCurve[currentCurve.length - 1], newPoint];
+        }
+      }
+    });
+  }
 </script>
 
 <Canvas
@@ -256,6 +283,9 @@
   {#each state.curves as curve}
     <Polyline points={curve} />
   {/each}
+  {#if state.segment!=undefined}
+    <Line start={state.segment[0]} end={state.segment[1]} />
+  {/if}
 </Canvas>
 
 <div class="button-area">
@@ -277,4 +307,5 @@
     Close curves
     <input type="checkbox" bind:checked={closeCurves} />
   </label>
+  <label>{mode}</label>
 </div>
