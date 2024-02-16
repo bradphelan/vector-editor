@@ -4,7 +4,6 @@
   import Polyline from "./Polyline.svelte";
   import type { Point, Curve, Curves, Segment } from "../types";
   import { areDeeplyEqual, douglasPeucker } from "../utils";
-  import type { Action } from "svelte/action";
   import { produce } from "immer";
 
   type Action =
@@ -15,6 +14,7 @@
     | "mouseclick"
     | "mousedblclick";
 
+  /// Whether to close the curves
   let closeCurves: boolean = true;
 
   type PointIndex = {
@@ -52,13 +52,6 @@
     drawing: false,
   };
 
-  function defaultState(mode:Mode):State {
-    if(mode=="edit") return defaultEditState;
-    if(mode=="lines") return defaultLinesState;
-    if(mode=="freehand") return defaultFreehandState;
-    throw new Error("Invalid mode");
-  }
-
   /// State object for when the user is drawing line segments
   interface LinesState {
     kind: "lines";
@@ -73,11 +66,19 @@
     segment: undefined,
   };
 
+  /// Factory function to create a default state for a given mode
+  function defaultState(mode: Mode): State {
+    if (mode == "edit") return defaultEditState;
+    if (mode == "lines") return defaultLinesState;
+    if (mode == "freehand") return defaultFreehandState;
+    throw new Error("Invalid mode");
+  }
+
   /// Union type for the state of the sketcher
   type State = EditState | FreehandState | LinesState;
 
   /// Set the default state of the sketcher
-  let state: State = defaultFreehandState;
+  let state: State = defaultState("freehand"); 
 
   /// Export curves from the component so the parent can access them
   export let curves: Curves;
@@ -148,9 +149,9 @@
 
   /// Change the mode and switch state types
   function changeMode(newMode: Mode) {
-      state = produce(defaultState(newMode), (draft) => {
-        draft.curves = state.curves;
-      });
+    state = produce(defaultState(newMode), (draft) => {
+      draft.curves = state.curves;
+    });
   }
 
   function finish_curve(state: State) {
@@ -224,7 +225,7 @@
     action: string,
     state: EditState,
     event: MouseEvent
-  ): EditState {
+  ): State {
     if (action === "mousedown") {
       editedPoint = GetEditedPoint(event);
     } else if (action === "mouseup") {
