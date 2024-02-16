@@ -9,6 +9,7 @@
   let curves = [];
   let tempLineStart = null;
   let cppInitializerList = ""; // This will hold the C++ initializer list
+  let closeCurves = true;
 
   function handleMouseDown(event) {
     isDrawing = true;
@@ -55,8 +56,11 @@
   function handleMouseUp() {
     if (mode === "freehand") {
       // End the current curve in freehand mode
-      currentCurve = [];
       isDrawing = false;
+      if (closeCurves && currentCurve.length > 1) {
+        currentCurve.push(currentCurve[0]);
+      }
+      currentCurve = [];
     } else if (mode === "lines") {
       // Clear the temporary line
       //tempLineStart = null;
@@ -79,8 +83,11 @@
   function handleDoubleClick() {
     if (mode === "lines" && currentCurve.length > 0) {
       // End the current curve in line mode
-      currentCurve = [];
       isDrawing = false;
+      if (closeCurves && currentCurve.length > 1) {
+        currentCurve.push(currentCurve[0]);
+      }
+      currentCurve = [];
       redraw();
     }
   }
@@ -271,6 +278,10 @@
   >
   <button on:click={() => clear()}>Reset</button>
   <button on:click={() => smoothCurves(5)}>Smooth</button>
+  <label>
+    Close curves
+    <input type="checkbox" bind:checked={closeCurves} />
+  </label>
 </div>
 
 <style>
