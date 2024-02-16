@@ -3,7 +3,7 @@
   import Line from "./Line.svelte";
   import Polyline from "./Polyline.svelte";
   import type { Point, Curve, Curves, Segment } from "../types";
-  import { douglasPeucker } from "../utils";
+  import { areDeeplyEqual, douglasPeucker } from "../utils";
   import type { Action } from "svelte/action";
   import { produce } from "immer";
 
@@ -26,6 +26,7 @@
 
   type Mode = "freehand" | "lines" | "edit";
 
+  /// State object for when the user is editing the curves
   interface EditState {
     kind: "edit";
     curves: Curves;
@@ -39,10 +40,11 @@
     editedPoint: undefined,
   };
 
-  interface FreehandState  {
+  /// State object for when the user is drawing freehand curves
+  interface FreehandState {
     kind: "freehand";
     curves: Curves;
-    drawing: boolean;   
+    drawing: boolean;
   }
   let defaultFreehandState: FreehandState = {
     kind: "freehand",
@@ -50,6 +52,14 @@
     drawing: false,
   };
 
+  function defaultState(mode:Mode):State {
+    if(mode=="edit") return defaultEditState;
+    if(mode=="lines") return defaultLinesState;
+    if(mode=="freehand") return defaultFreehandState;
+    throw new Error("Invalid mode");
+  }
+
+  /// State object for when the user is drawing line segments
   interface LinesState {
     kind: "lines";
     curves: Curves;
@@ -63,19 +73,18 @@
     segment: undefined,
   };
 
+  /// Union type for the state of the sketcher
   type State = EditState | FreehandState | LinesState;
 
-  let state: State = {
-    kind : "freehand",
-    curves: [],
-    drawing: false,
-  };
+  /// Set the default state of the sketcher
+  let state: State = defaultFreehandState;
 
+  /// Export curves from the component so the parent can access them
   export let curves: Curves;
-
   $: curves = state.curves;
 
-  function last_curve(state: State) {
+  /// Return the last curve in the state or undefined
+  function last_curve(state: State): Curve | undefined {
     let l0 = state.curves.length;
     if (l0 == 0) {
       return undefined;
@@ -83,7 +92,8 @@
     return state.curves[l0 - 1];
   }
 
-  function last_point(state: State) {
+  /// Return the last point in the last curve or undefined
+  function last_point(state: State): Point | undefined {
     let lc = last_curve(state);
     let l = lc?.length ?? 0;
     if (!lc || l == 0) {
@@ -92,20 +102,7 @@
     return lc[l - 1];
   }
 
-  function areDeeplyEqual(obj1: any, obj2: any): boolean {
-    if (obj1 === obj2) return true;
-
-    if (Array.isArray(obj1) && Array.isArray(obj2)) {
-      if (obj1.length !== obj2.length) return false;
-
-      return obj1.every((elem, index) => {
-        return areDeeplyEqual(elem, obj2[index]);
-      });
-    }
-
-    return false;
-  }
-
+  /// Push a new point onto the last curve or create a new curve if there are no curves
   function push_point(point: Point, state: State): State {
     return produce(state, (draft) => {
       if (draft.curves.length == 0) draft.curves.push([]);
@@ -114,56 +111,46 @@
     });
   }
 
+  /// Pop a point from the last curve
   function pop_point(state: State): State {
     return produce(state, (draft) => {
       if (draft.curves.length > 0) draft.curves[draft.curves.length - 1].pop();
     });
   }
 
+  /// Push a new curve onto the state
   function new_curve(state: State): State {
     return produce(state, (draft) => {
       if ((last_curve(draft)?.length ?? 0) > 0) draft.curves.push([]);
     });
   }
 
+  /// Pop the last curve from the state
   function pop_curve(state: State): State {
     return produce(state, (draft) => {
       draft.curves.pop();
     });
   }
 
-  function startDrawing(state: State){
+  /// Mark the state as drawing a curve
+  function startDrawing(state: State) {
     return produce(state, (draft) => {
       draft.drawing = true;
     });
   }
 
+  /// Mark the state as not drawing a curve
   function stopDrawing(state: State): State {
     return produce(state, (draft) => {
       draft.drawing = false;
     });
   }
 
+  /// Change the mode and switch state types
   function changeMode(newMode: Mode) {
-    if(newMode == "edit")
-    {
-        const newState = defaultEditState;
-        state = produce(newState, (draft) => {
-            draft.curves = state.curves;
-        });
-    }else if(newMode == "lines")
-    {
-        const newState = defaultLinesState;
-        state = produce(newState, (draft) => {
-            draft.curves = state.curves;
-        });
-    }else if(newMode == "freehand")
-    {
-        const newState = defaultFreehandState;
-        state = produce(newState, (draft) => {
-            draft.curves = state.curves;
-        });
-    }
+      state = produce(defaultState(newMode), (draft) => {
+        draft.curves = state.curves;
+      });
   }
 
   function finish_curve(state: State) {
@@ -233,7 +220,11 @@
     });
   }
 
-  function reduceEdit(action: string, state: EditState, event: MouseEvent) : EditState {
+  function reduceEdit(
+    action: string,
+    state: EditState,
+    event: MouseEvent
+  ): EditState {
     if (action === "mousedown") {
       editedPoint = GetEditedPoint(event);
     } else if (action === "mouseup") {
@@ -258,7 +249,11 @@
     return state;
   }
 
-  function reduceLines(action: string, state: LinesState, event: MouseEvent) : State {
+  function reduceLines(
+    action: string,
+    state: LinesState,
+    event: MouseEvent
+  ): State {
     let newPoint: Point = [event.offsetX, event.offsetY];
     let timer;
     if (action === "mouseclick") {
@@ -273,7 +268,11 @@
     return state;
   }
 
-  function reduceFreehand(action: string, state: State, event: MouseEvent) : State {
+  function reduceFreehand(
+    action: string,
+    state: State,
+    event: MouseEvent
+  ): State {
     let newPoint: Point = [event.offsetX, event.offsetY];
     if (action === "mousedown") {
       return startDrawing(push_point(newPoint, new_curve(state)));
