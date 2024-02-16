@@ -134,6 +134,12 @@
     state: State,
     event: MouseEvent
   ) => {
+
+    if (action === "mouseout") {
+      state = stopDrawing(finish_curve(state));
+      return state;
+    }
+
     let newPoint: Point = [event.offsetX, event.offsetY];
     if (mode === "freehand") {
       if (action === "mousedown") {
@@ -147,7 +153,6 @@
             state = push_point(newPoint, state);
       }
     } else if (mode === "lines") {
-      console.log(state)
       if ( action === "mousedown" && !state.drawing)
       {
         state = startDrawing(push_point(newPoint, new_curve(state)));
