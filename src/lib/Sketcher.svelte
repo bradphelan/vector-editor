@@ -17,6 +17,20 @@
   let editedPoint = 0;
   let editing = false;
 
+  function push_point(point:Point)
+  {
+    currentCurve.push(point);
+    currentCurve = currentCurve;
+    curves = curves;
+  }
+
+  function new_curve()
+  {
+    currentCurve = [];
+    curves.push(currentCurve);
+    curves = curves;
+  }
+
   function changeMode(newMode: Mode) {
     mode = newMode;
     if (mode === "freehand") {
@@ -102,22 +116,17 @@
     const newPoint: Point = [event.offsetX, event.offsetY];
     if (mode === "freehand") {
       // Start a new curve in freehand mode
-      currentCurve = [newPoint];
-      curves.push(currentCurve);
-      curves = curves;
+      new_curve();
+      push_point(newPoint);
     } else if (mode === "lines") {
       // Add a point to the current curve or start a new one
       if (currentCurve.length === 0) {
         // Start a new curve
-        currentCurve.push(newPoint);
-        currentCurve = currentCurve;
-        curves.push(currentCurve);
-        curves = curves;
+        new_curve();
+        push_point(newPoint);
       } else {
         // Add a point to the current curve
-        currentCurve.push(newPoint);
-        currentCurve = currentCurve;
-        curves = curves;
+        push_point(newPoint);
       }
       tempLineStart = newPoint; // Start the temporary line
     } else if (mode === "edit") {
@@ -144,9 +153,7 @@
     if (isDrawing) {
       if (mode === "freehand") {
         const newPoint: Point = [event.offsetX, event.offsetY];
-        currentCurve.push(newPoint);
-        currentCurve = currentCurve;
-        curves = curves;
+        push_point(newPoint);
       } else if (mode === "edit") {
         // Drag the closest point to the mouse with the mouse
         if (editing) {
@@ -164,8 +171,7 @@
       // End the current curve in freehand mode
       isDrawing = false;
       if (closeCurves && currentCurve.length > 1) {
-        currentCurve.push(currentCurve[0]);
-        currentCurve = currentCurve;
+        push_point(currentCurve[0]);
       }
       currentCurve = [];
     } else if (mode === "lines") {
@@ -192,8 +198,7 @@
       // End the current curve in line mode
       isDrawing = false;
       if (closeCurves && currentCurve.length > 1) {
-        currentCurve.push(currentCurve[0]);
-        currentCurve = currentCurve;
+        push_point(currentCurve[0]);
       }
       currentCurve = [];
       tempLineStart = null;
