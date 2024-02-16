@@ -13,19 +13,20 @@
   let tempLineStart: Point | null = null;
   let closeCurves = true;
 
-  let editedCurve = 0;
-  let editedPoint = 0;
-  let editing = false;
+  type PointIndex = {
+    curve: number;
+    point: number;
+  } 
+  
+  let editedPoint : PointIndex|undefined = undefined;
 
-  function push_point(point:Point)
-  {
+  function push_point(point: Point) {
     currentCurve.push(point);
     currentCurve = currentCurve;
     curves = curves;
   }
 
-  function new_curve()
-  {
+  function new_curve() {
     currentCurve = [];
     curves.push(currentCurve);
     curves = curves;
@@ -80,7 +81,7 @@
     return Math.sqrt(dx * dx + dy * dy);
   }
 
-  function douglasPeucker(points: Point[], tolerance: number) : Point[] {
+  function douglasPeucker(points: Point[], tolerance: number): Point[] {
     let dmax = 0;
     let index = 0;
     const end = points.length - 1;
@@ -107,7 +108,7 @@
     }
   }
 
-  function smoothCurves(tolerance:number) {
+  function smoothCurves(tolerance: number) {
     curves = curves.map((curve) => douglasPeucker(curve, tolerance));
   }
 
@@ -131,22 +132,30 @@
       tempLineStart = newPoint; // Start the temporary line
     } else if (mode === "edit") {
       // Find the closest point to the mouse and drag it
-      let minDistance = Infinity;
-      for (let i = 0; i < curves.length; i++) {
-        for (let j = 0; j < curves[i].length; j++) {
-          const distance = Math.sqrt(
-            (curves[i][j][0] - event.offsetX) ** 2 +
-              (curves[i][j][1] - event.offsetY) ** 2
-          );
-          if (distance < minDistance) {
-            minDistance = distance;
-            editedCurve = i;
-            editedPoint = j;
-          }
+      editedPoint = GetEditedPoint(event);
+    }
+  }
+
+  function GetEditedPoint(event: MouseEvent) : PointIndex | undefined {
+    let minDistance = Infinity;
+    let editedCurve = undefined;
+    let editedPoint = undefined;
+    for (let i = 0; i < curves.length; i++) {
+      for (let j = 0; j < curves[i].length; j++) {
+        const distance = Math.sqrt(
+          (curves[i][j][0] - event.offsetX) ** 2 +
+            (curves[i][j][1] - event.offsetY) ** 2
+        );
+        if (distance < minDistance) {
+          minDistance = distance;
+          editedCurve = i;
+          editedPoint = j;
         }
       }
-      editing = true;
     }
+    if(editedCurve&&editedPoint)
+        return {curve: editedCurve, point:editedPoint};
+    return undefined;
   }
 
   function handleMouseMove(event: MouseEvent) {
@@ -156,8 +165,8 @@
         push_point(newPoint);
       } else if (mode === "edit") {
         // Drag the closest point to the mouse with the mouse
-        if (editing) {
-          curves[editedCurve][editedPoint] = [event.offsetX, event.offsetY];
+        if (editedPoint) {
+          curves[editedPoint.curve][editedPoint.point] = [event.offsetX, event.offsetY];
         }
       } else if (mode === "lines") {
         // Update the temporary line
@@ -176,7 +185,7 @@
       currentCurve = [];
     } else if (mode === "lines") {
     } else if (mode === "edit") {
-      editing = false;
+      editedPoint = undefined
     }
   }
 
@@ -189,7 +198,7 @@
       // Clear the temporary line
       tempLineStart = null;
     } else if (mode === "edit") {
-      editing = false;
+      editedPoint = undefined;
     }
   }
 
