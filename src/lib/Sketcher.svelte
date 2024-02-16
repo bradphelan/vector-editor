@@ -7,7 +7,6 @@
   import type { Action } from "svelte/action";
   import { produce } from "immer";
 
-  type Mode = "freehand" | "lines" | "edit";
   type Action =
     | "mousedown"
     | "mousemove"
@@ -16,7 +15,6 @@
     | "mouseclick"
     | "mousedblclick";
 
-  let mode: Mode = "freehand"; // Default mode
   let closeCurves: boolean = true;
 
   type PointIndex = {
@@ -26,16 +24,51 @@
 
   let editedPoint: PointIndex | undefined = undefined;
 
-  type State = {
+  type Mode = "freehand" | "lines" | "edit";
+
+  interface EditState {
+    kind: "edit";
+    curves: Curves;
+    drawing: boolean;
+    editedPoint: PointIndex | undefined;
+  }
+  let defaultEditState: EditState = {
+    kind: "edit",
+    curves: [],
+    drawing: false,
+    editedPoint: undefined,
+  };
+
+  interface FreehandState  {
+    kind: "freehand";
+    curves: Curves;
+    drawing: boolean;   
+  }
+  let defaultFreehandState: FreehandState = {
+    kind: "freehand",
+    curves: [],
+    drawing: false,
+  };
+
+  interface LinesState {
+    kind: "lines";
     curves: Curves;
     drawing: boolean;
     segment: Segment | undefined;
-  };
-
-  let state: State = {
+  }
+  let defaultLinesState: LinesState = {
+    kind: "lines",
     curves: [],
     drawing: false,
     segment: undefined,
+  };
+
+  type State = EditState | FreehandState | LinesState;
+
+  let state: State = {
+    kind : "freehand",
+    curves: [],
+    drawing: false,
   };
 
   export let curves: Curves;
@@ -99,7 +132,7 @@
     });
   }
 
-  function startDrawing(state: State): State {
+  function startDrawing(state: State){
     return produce(state, (draft) => {
       draft.drawing = true;
     });
@@ -108,13 +141,29 @@
   function stopDrawing(state: State): State {
     return produce(state, (draft) => {
       draft.drawing = false;
-      draft.segment = undefined;
     });
   }
 
   function changeMode(newMode: Mode) {
-    mode = newMode;
-    state = new_curve(state);
+    if(newMode == "edit")
+    {
+        const newState = defaultEditState;
+        state = produce(newState, (draft) => {
+            draft.curves = state.curves;
+        });
+    }else if(newMode == "lines")
+    {
+        const newState = defaultLinesState;
+        state = produce(newState, (draft) => {
+            draft.curves = state.curves;
+        });
+    }else if(newMode == "freehand")
+    {
+        const newState = defaultFreehandState;
+        state = produce(newState, (draft) => {
+            draft.curves = state.curves;
+        });
+    }
   }
 
   function finish_curve(state: State) {
@@ -130,7 +179,6 @@
   function clear(state: State) {
     return produce(state, (draft) => {
       draft.curves = [];
-      draft.segment = undefined;
       draft.drawing = false;
     });
   }
@@ -165,7 +213,7 @@
     });
   }
 
-  function create_segment(state: State, newPoint: Point): State {
+  function create_segment(state: LinesState, newPoint: Point): LinesState {
     return produce(state, (draft) => {
       if (draft.curves.length > 0) {
         let currentCurve = draft.curves[draft.curves.length - 1];
@@ -185,8 +233,7 @@
     });
   }
 
-
-  function reduceEdit(action: string, state: State, event: MouseEvent) {
+  function reduceEdit(action: string, state: EditState, event: MouseEvent) : EditState {
     if (action === "mousedown") {
       editedPoint = GetEditedPoint(event);
     } else if (action === "mouseup") {
@@ -211,45 +258,40 @@
     return state;
   }
 
-  function reduceLines(action: string, state: State, event: MouseEvent) {
+  function reduceLines(action: string, state: LinesState, event: MouseEvent) : State {
     let newPoint: Point = [event.offsetX, event.offsetY];
     let timer;
     if (action === "mouseclick") {
-      console.log("click");
       if (!state.drawing)
-        state = startDrawing(push_point(newPoint, new_curve(state)));
-      else state = push_point(newPoint, state);
+        return startDrawing(push_point(newPoint, new_curve(state)));
+      else return push_point(newPoint, state);
     } else if (action === "mousemove") {
-      if (state.drawing) state = create_segment(state, newPoint);
+      return state.drawing ? create_segment(state, newPoint) : state;
     } else if (action === "mousedblclick") {
-      clearTimeout(timer);
-      console.log("dblclick");
-      state = stopDrawing(finish_curve(state));
+      return stopDrawing(finish_curve(state));
     }
     return state;
   }
 
-  function reduceFreehand(action: string, state: State, event: MouseEvent) {
+  function reduceFreehand(action: string, state: State, event: MouseEvent) : State {
     let newPoint: Point = [event.offsetX, event.offsetY];
     if (action === "mousedown") {
-      state = startDrawing(push_point(newPoint, new_curve(state)));
+      return startDrawing(push_point(newPoint, new_curve(state)));
     } else if (action === "mouseup") {
-      if (state.drawing) {
-        state = stopDrawing(finish_curve(state));
-      }
+      return state.drawing ? stopDrawing(finish_curve(state)) : state;
     } else if (action === "mousemove") {
-      if (state.drawing) state = push_point(newPoint, state);
+      return state.drawing ? push_point(newPoint, state) : state;
     }
     return state;
   }
 
   function handleEvent(action: Action) {
     return (event: MouseEvent | any) => {
-      if (mode === "freehand") {
+      if (state.kind === "freehand") {
         state = reduceFreehand(action, state, event);
-      } else if (mode === "lines") {
+      } else if (state.kind === "lines") {
         state = reduceLines(action, state, event);
-      } else if (mode === "edit") {
+      } else if (state.kind === "edit") {
         state = reduceEdit(action, state, event);
       }
       return state;
@@ -269,7 +311,7 @@
   {#each state.curves as curve}
     <Polyline points={curve} />
   {/each}
-  {#if state.segment != undefined}
+  {#if state.kind == "lines" && state.segment != undefined}
     <Line start={state.segment[0]} end={state.segment[1]} />
   {/if}
 </Canvas>
@@ -277,15 +319,15 @@
 <div class="button-area">
   <button
     on:click={() => changeMode("freehand")}
-    class={mode === "freehand" ? "active" : ""}>Freehand</button
+    class={state.kind === "freehand" ? "active" : ""}>Freehand</button
   >
   <button
     on:click={() => changeMode("lines")}
-    class={mode === "lines" ? "active" : ""}>Lines</button
+    class={state.kind === "lines" ? "active" : ""}>Lines</button
   >
   <button
     on:click={() => changeMode("edit")}
-    class={mode === "edit" ? "active" : ""}>Edit</button
+    class={state.kind === "edit" ? "active" : ""}>Edit</button
   >
   <button on:click={() => (state = clear(state))}>Reset</button>
   <button on:click={() => (state = smoothCurves(5, state))}>Smooth</button>
