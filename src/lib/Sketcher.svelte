@@ -78,7 +78,7 @@
   type State = EditState | FreehandState | LinesState;
 
   /// Set the default state of the sketcher
-  let state: State = defaultState("freehand"); 
+  let state: State = defaultState("freehand");
 
   /// Export curves from the component so the parent can access them
   export let curves: Curves;
@@ -165,12 +165,10 @@
   }
 
   function clear(state: State) {
-    return produce(state, (draft) => {
-      draft.curves = [];
-      draft.drawing = false;
-    });
+    return defaultState(state.kind);
   }
 
+  /// Return the index of the point closest to the mouse
   function GetEditedPoint(event: MouseEvent): PointIndex | undefined {
     let minDistance = Infinity;
     let editedCurve = undefined;
@@ -193,6 +191,7 @@
     return undefined;
   }
 
+  /// Smooth the curves using the Douglas-Peucker algorithm
   function smoothCurves(tolerance: number, state: State): State {
     return produce(state, (draft) => {
       draft.curves = draft.curves.map((curve) =>
@@ -201,6 +200,7 @@
     });
   }
 
+  /// Create a segment between the last point in the last curve and the new point
   function create_segment(state: LinesState, newPoint: Point): LinesState {
     return produce(state, (draft) => {
       if (draft.curves.length > 0) {
@@ -212,6 +212,7 @@
     });
   }
 
+  /// Delete the last curve
   function undo(arg0: number, state: State): State {
     state = stopDrawing(state);
     return produce(state, (draft) => {
@@ -221,6 +222,7 @@
     });
   }
 
+  /// Action management for editing mode
   function reduceEdit(
     action: string,
     state: EditState,
@@ -250,6 +252,7 @@
     return state;
   }
 
+  /// Action management for line drawing mode
   function reduceLines(
     action: string,
     state: LinesState,
@@ -269,6 +272,7 @@
     return state;
   }
 
+  /// Action management for freehand drawing mode
   function reduceFreehand(
     action: string,
     state: State,

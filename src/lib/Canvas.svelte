@@ -22,8 +22,9 @@
     // get canvas context
     let ctx = canvasElement.getContext("2d");
 
-  
-    let frameId = requestAnimationFrame(() => {if(ctx!=null) draw(ctx)});
+    let frameId = requestAnimationFrame(() => {
+      if (ctx != null) draw(ctx);
+    });
 
     // Set the display size (scaled for device's pixel ratio)
     const scale = window.devicePixelRatio;
@@ -36,7 +37,6 @@
     ctx.scale(scale, scale);
     ctx.strokeStyle = "#000000";
     ctx.lineWidth = 2;
-
   });
 
   onDestroy(() => {
@@ -54,15 +54,22 @@
 
 <slot />
 
-<canvas bind:this={canvasElement} on:click on:mousemove on:mousedown on:mouseup on:keydown on:keyup on:keypress on:dblclick />
-
-
+<canvas
+  bind:this={canvasElement}
+  on:click
+  on:mousemove
+  on:mousedown
+  on:mouseup
+  on:keydown
+  on:keyup
+  on:keypress
+  on:dblclick
+/>
 
 <style>
-    canvas {
-        /* drop shadow border */
-        box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.2);
-        background-color: white ;
-
-    }
+  canvas {
+    /* drop shadow border */
+    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.2);
+    background-color: white;
+  }
 </style>
