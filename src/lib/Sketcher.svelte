@@ -165,6 +165,27 @@
     });
   }
 
+  function create_segment(state: State, newPoint: Point): State {
+    return produce(state, (draft) => {
+      if (draft.curves.length > 0) {
+        let currentCurve = draft.curves[draft.curves.length - 1];
+        if (currentCurve.length > 0) {
+          draft.segment = [currentCurve[currentCurve.length - 1], newPoint];
+        }
+      }
+    });
+  }
+
+  function undo(arg0: number, state: State): State {
+    state = stopDrawing(state);
+    return produce(state, (draft) => {
+      if (draft.curves.length > 0) {
+        draft.curves.pop();
+      }
+    });
+  }
+
+
   function reduceEdit(action: string, state: State, event: MouseEvent) {
     if (action === "mousedown") {
       editedPoint = GetEditedPoint(event);
@@ -222,78 +243,27 @@
     return state;
   }
 
-  const reduce = (
-    action: Action,
-    mode: Mode,
-    state: State,
-    event: MouseEvent
-  ) => {
-    if (mode === "freehand") {
-      state = reduceFreehand(action, state, event);
-    } else if (mode === "lines") {
-      state = reduceLines(action, state, event);
-    } else if (mode === "edit") {
-      state = reduceEdit(action, state, event);
-    }
-
-    return state;
-  };
-
-  function handleMouseDown(event: MouseEvent) {
-    state = reduce("mousedown", mode, state, event);
-  }
-
-  function handleMouseMove(event: MouseEvent) {
-    state = reduce("mousemove", mode, state, event);
-  }
-
-  function handleMouseUp(event: MouseEvent) {
-    state = reduce("mouseup", mode, state, event);
-  }
-
-  function handleMouseOut(event: any) {
-    state = reduce("mouseout", mode, state, event);
-  }
-
-  function handleDoubleClick(event: MouseEvent) {
-    state = reduce("mousedblclick", mode, state, event);
-  }
-  function handleClick(event: MouseEvent) {
-    state = reduce("mouseclick", mode, state, event);
-  }
-
-  $: lastPoint = last_point(state);
-  let endPoint: Point = [0, 0];
-
-  function create_segment(state: State, newPoint: Point): State {
-    return produce(state, (draft) => {
-      if (draft.curves.length > 0) {
-        let currentCurve = draft.curves[draft.curves.length - 1];
-        if (currentCurve.length > 0) {
-          draft.segment = [currentCurve[currentCurve.length - 1], newPoint];
-        }
+  function handleEvent(action: Action) {
+    return (event: MouseEvent | any) => {
+      if (mode === "freehand") {
+        state = reduceFreehand(action, state, event);
+      } else if (mode === "lines") {
+        state = reduceLines(action, state, event);
+      } else if (mode === "edit") {
+        state = reduceEdit(action, state, event);
       }
-    });
-  }
-
-
-  function undo(arg0: number, state: State): State {
-    state = stopDrawing(state);
-    return produce(state, (draft) => {
-      if (draft.curves.length > 0) {
-        draft.curves.pop();
-      }
-    });
+      return state;
+    };
   }
 </script>
 
 <Canvas
-  on:mousedown={handleMouseDown}
-  on:mousemove={handleMouseMove}
-  on:mouseup={handleMouseUp}
-  on:mouseout={handleMouseOut}
-  on:dblclick={handleDoubleClick}
-  on:click={handleClick}
+  on:mousedown={handleEvent("mousedown")}
+  on:mousemove={handleEvent("mousemove")}
+  on:mouseup={handleEvent("mouseup")}
+  on:mouseout={handleEvent("mouseout")}
+  on:dblclick={handleEvent("mousedblclick")}
+  on:click={handleEvent("mouseclick")}
 >
   <!-- If tempLineStart exists then draw a line from the end of the current curve -->
   {#each state.curves as curve}
