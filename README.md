@@ -1,7 +1,7 @@
 Simple Vector Editor
 ====================
 
-A simple vector editor that immediately generate C++ code representing the points that are drawn.
+A simple vector editor that immediately generates C++ code representing the points that are drawn.
 
 https://bradphelan.github.io/vector-editor/
 
