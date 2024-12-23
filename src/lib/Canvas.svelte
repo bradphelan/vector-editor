@@ -35,6 +35,11 @@
 
     // Scale the drawing context
     ctx.scale(scale, scale);
+
+    // Shift origin to bottom-left and invert Y
+    ctx.translate(0, canvasElement.height / scale);
+    ctx.scale(1, -1);
+
     ctx.strokeStyle = "#000000";
     ctx.lineWidth = 2;
   });
@@ -44,9 +49,12 @@
   });
 
   function draw(ctx: CanvasRenderingContext2D) {
-    if (true) {
-      ctx.clearRect(0, 0, canvasElement.width, canvasElement.width);
-    }
+    // Clear in untransformed space
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    ctx.restore();
+
     fnsToDraw.forEach((fn) => fn(ctx));
     frameId = requestAnimationFrame(() => draw(ctx));
   }

@@ -173,11 +173,13 @@
     let minDistance = Infinity;
     let editedCurve = undefined;
     let editedPoint = undefined;
+    let eX = event.offsetX;
+    let eY = 600 - event.offsetY;
     for (let i = 0; i < state.curves.length; i++) {
       for (let j = 0; j < state.curves[i].length; j++) {
         const distance = Math.sqrt(
-          (state.curves[i][j][0] - event.offsetX) ** 2 +
-            (state.curves[i][j][1] - event.offsetY) ** 2
+          (state.curves[i][j][0] - eX) ** 2 +
+            (state.curves[i][j][1] - eY) ** 2
         );
         if (distance < minDistance) {
           minDistance = distance;
@@ -228,6 +230,8 @@
     state: EditState,
     event: MouseEvent
   ): State {
+    let eX = event.offsetX;
+    let eY = 600 - event.offsetY;
     if (action === "mousedown") {
       editedPoint = GetEditedPoint(event);
     } else if (action === "mouseup") {
@@ -237,13 +241,13 @@
         state = produce(state, (draft) => {
           if (editedPoint != undefined) {
             let curve = draft.curves[editedPoint.curve];
-            curve[editedPoint.point] = [event.offsetX, event.offsetY];
+            curve[editedPoint.point] = [eX, eY];
             if (
               editedPoint.point == 0 ||
               editedPoint.point == curve.length - 1
             ) {
               let i = curve.length - editedPoint.point - 1;
-              curve[i] = [event.offsetX, event.offsetY];
+              curve[i] = [eX, eY];
             }
           }
         });
@@ -258,7 +262,9 @@
     state: LinesState,
     event: MouseEvent
   ): State {
-    let newPoint: Point = [event.offsetX, event.offsetY];
+    let eX = event.offsetX;
+    let eY = 600 - event.offsetY;
+    let newPoint: Point = [eX, eY];
     let timer;
     if (action === "mouseclick") {
       if (!state.drawing)
@@ -278,7 +284,9 @@
     state: State,
     event: MouseEvent
   ): State {
-    let newPoint: Point = [event.offsetX, event.offsetY];
+    let eX = event.offsetX;
+    let eY = 600 - event.offsetY;
+    let newPoint: Point = [eX, eY];
     if (action === "mousedown") {
       return startDrawing(push_point(newPoint, new_curve(state)));
     } else if (action === "mouseup") {

@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import type { Point, Curve, Curves } from "./types";
   import Sketcher from "./lib/Sketcher.svelte";
+  import { version } from "../package.json";
 
   let curves: Point[][] = [];
 
@@ -49,7 +50,7 @@
     const data = [new ClipboardItem({ [type]: blob })];
     await navigator.clipboard.write(data);
   }
-
+1
   function copy() {
     setClipboard(cppInitializerList);
   }
@@ -59,7 +60,7 @@
 
 <main>
   <div class="explanation">
-    <h1>Sketcher</h1>
+    <h1>Sketcher {version}</h1>
     <p>
       Sketcher is a tool to help you create a list of points to be used in c++
       unit tests. Draw your curves and copy the C++ code to use in your project.
