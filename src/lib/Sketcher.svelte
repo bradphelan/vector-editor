@@ -1,18 +1,18 @@
 <script lang="ts">
-  import Canvas from "./Canvas.svelte";
-  import Line from "./Line.svelte";
-  import Polyline from "./Polyline.svelte";
+  import { Stage, Layer, Line } from "svelte-konva";
   import type { Point, Curve, Curves, Segment } from "../types";
   import { areDeeplyEqual, douglasPeucker } from "../utils";
   import { produce } from "immer";
+
+  let stage: Stage;
 
   type Action =
     | "mousedown"
     | "mousemove"
     | "mouseup"
     | "mouseout"
-    | "mouseclick"
-    | "mousedblclick";
+    | "click"
+    | "dblclick";
 
   /// Whether to close the curves
   let closeCurves: boolean = true;
@@ -173,13 +173,14 @@
     let minDistance = Infinity;
     let editedCurve = undefined;
     let editedPoint = undefined;
-    let eX = event.offsetX;
-    let eY = 600 - event.offsetY;
+    let stage = event.detail.currentTarget as Stage;
+    let pp = stage.getPointerPosition();
+    let eX = pp.x;
+    let eY = pp.y;
     for (let i = 0; i < state.curves.length; i++) {
       for (let j = 0; j < state.curves[i].length; j++) {
         const distance = Math.sqrt(
-          (state.curves[i][j][0] - eX) ** 2 +
-            (state.curves[i][j][1] - eY) ** 2
+          (state.curves[i][j][0] - eX) ** 2 + (state.curves[i][j][1] - eY) ** 2,
         );
         if (distance < minDistance) {
           minDistance = distance;
@@ -197,7 +198,7 @@
   function smoothCurves(tolerance: number, state: State): State {
     return produce(state, (draft) => {
       draft.curves = draft.curves.map((curve) =>
-        douglasPeucker(curve, tolerance)
+        douglasPeucker(curve, tolerance),
       );
     });
   }
@@ -228,10 +229,12 @@
   function reduceEdit(
     action: string,
     state: EditState,
-    event: MouseEvent
+    event: MouseEvent,
   ): State {
-    let eX = event.offsetX;
-    let eY = 600 - event.offsetY;
+    let stage = event.detail.currentTarget as Stage;
+    let pp = stage.getPointerPosition();
+    let eX = pp.x;
+    let eY = pp.y;
     if (action === "mousedown") {
       editedPoint = GetEditedPoint(event);
     } else if (action === "mouseup") {
@@ -260,19 +263,21 @@
   function reduceLines(
     action: string,
     state: LinesState,
-    event: MouseEvent
+    event: MouseEvent,
   ): State {
-    let eX = event.offsetX;
-    let eY = 600 - event.offsetY;
+    let stage = event.detail.currentTarget as Stage;
+    let pp = stage.getPointerPosition();
+    let eX = pp.x;
+    let eY = pp.y;
     let newPoint: Point = [eX, eY];
     let timer;
-    if (action === "mouseclick") {
+    if (action === "click") {
       if (!state.drawing)
         return startDrawing(push_point(newPoint, new_curve(state)));
       else return push_point(newPoint, state);
     } else if (action === "mousemove") {
       return state.drawing ? create_segment(state, newPoint) : state;
-    } else if (action === "mousedblclick") {
+    } else if (action === "dblclick") {
       return stopDrawing(finish_curve(state));
     }
     return state;
@@ -282,10 +287,13 @@
   function reduceFreehand(
     action: string,
     state: State,
-    event: MouseEvent
+    event: MouseEvent,
   ): State {
-    let eX = event.offsetX;
-    let eY = 600 - event.offsetY;
+    let stage = event.detail.currentTarget as Stage;
+    let pp = stage.getPointerPosition();
+    let eX = pp.x;
+    let eY = pp.y;
+    event.detail
     let newPoint: Point = [eX, eY];
     if (action === "mousedown") {
       return startDrawing(push_point(newPoint, new_curve(state)));
@@ -297,36 +305,57 @@
     return state;
   }
 
-  function handleEvent(action: Action) {
-    return (event: MouseEvent | any) => {
-      if (state.kind === "freehand") {
-        state = reduceFreehand(action, state, event);
-      } else if (state.kind === "lines") {
-        state = reduceLines(action, state, event);
-      } else if (state.kind === "edit") {
-        state = reduceEdit(action, state, event);
-      }
-      return state;
-    };
+  function handleEvent(e: MouseEvent | any) {
+    if (state.kind === "freehand") {
+      state = reduceFreehand(e.type, state, e);
+    } else if (state.kind === "lines") {
+      state = reduceLines(e.type, state, e);
+    } else if (state.kind === "edit") {
+      state = reduceEdit(e.type, state, e);
+    }
+    return state;
   }
+
+
 </script>
 
-<Canvas
-  on:mousedown={handleEvent("mousedown")}
-  on:mousemove={handleEvent("mousemove")}
-  on:mouseup={handleEvent("mouseup")}
-  on:mouseout={handleEvent("mouseout")}
-  on:dblclick={handleEvent("mousedblclick")}
-  on:click={handleEvent("mouseclick")}
+<Stage
+  bind:this={stage}
+  config={{ width: 800, height: 600 }}
+  on:mousedown={handleEvent}
+  on:mousemove={handleEvent}
+  on:mouseup={handleEvent}
+  on:click={handleEvent}
+  on:dblclick={handleEvent}
 >
-  <!-- If tempLineStart exists then draw a line from the end of the current curve -->
-  {#each state.curves as curve}
-    <Polyline points={curve} />
-  {/each}
-  {#if state.kind == "lines" && state.segment != undefined}
-    <Line start={state.segment[0]} end={state.segment[1]} />
-  {/if}
-</Canvas>
+  <Layer>
+    {#each state.curves as curve}
+      <!-- Convert points to Konva format (flat array) and flip Y coordinates -->
+      <Line
+        config={{
+          points: curve.flatMap((point) => [point[0], point[1]]),
+          stroke: "black",
+          strokeWidth: 2,
+        }}
+      />
+    {/each}
+    {#if state.kind == "lines" && state.segment != undefined}
+      <!-- Convert segment points to Konva format -->
+      <Line
+        config={{
+          points: [
+            state.segment[0][0],
+            state.segment[0][1],
+            state.segment[1][0],
+            state.segment[1][1],
+          ],
+          stroke: "black",
+          strokeWidth: 2,
+        }}
+      />
+    {/if}
+  </Layer>
+</Stage>
 
 <div class="button-area">
   <button
@@ -349,3 +378,11 @@
     <input type="checkbox" bind:checked={closeCurves} />
   </label>
 </div>
+
+<style>
+  :global(.konvajs-content) {
+    /* drop shadow border */
+    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.2);
+    background-color: white;
+  }
+</style>

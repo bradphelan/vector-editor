@@ -33,7 +33,9 @@
   }
 
   function curvesToString(curves: Curves) {
-    return `{${joinByDelimeter(curves, curveToString, ", ")}}`;
+    if(curves!=undefined)
+      return `{${joinByDelimeter(curves, curveToString, ", ")}}`;
+    return "{}";
   }
 
   function updateCppInitializerList(curves: Point[][]) {
