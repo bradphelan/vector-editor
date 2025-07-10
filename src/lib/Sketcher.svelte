@@ -4,16 +4,6 @@
   import { areDeeplyEqual, douglasPeucker } from "../utils";
   import { produce } from "immer";
 
-  let stage: Stage;
-
-  type Action =
-    | "mousedown"
-    | "mousemove"
-    | "mouseup"
-    | "mouseout"
-    | "click"
-    | "dblclick";
-
   /// Whether to close the curves
   let closeCurves: boolean = true;
 
@@ -320,7 +310,6 @@
 </script>
 
 <Stage
-  bind:this={stage}
   config={{ width: 800, height: 600 }}
   on:mousedown={handleEvent}
   on:mousemove={handleEvent}
